@@ -1,4 +1,4 @@
-﻿#include "features.h"
+#include "features.h"
 #include "binary_info.h"
 
 namespace mapper
@@ -255,13 +255,14 @@ back:       // allocate block
 								uintptr_t delta_address = runtime_address + 0x2;
 								ZyanU64 absolute_addr = 0;
 								ZydisCalcAbsoluteAddress(&instruction, instruction.operands, runtime_address, &absolute_addr);
-								if (absolute_addr >= 0x10000000 && absolute_addr <= file.GetFileLength() + 0x10000000)
+								if (absolute_addr < block_base_address || absolute_addr > 0x1000 + block_base_address)
 								{
-									if (debug_mode) printf("-> unknown memory 0x%010" "llx" "\n", runtime_address);
+									printf("-> conditional 0x%010" "llx" "\n", runtime_address);
 									uintptr_t new_call_address = 0;
-									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
+									new_call_address = calculate_rva(absolute_addr - block_base_address + calculate_block_size, blocks, false);
 									if (new_call_address != 0xdeadc0de)
 									{
+										new_call_address = new_call_address - runtime_address - instruction.length;
 										WriteProcessMemory
 										(
 											game::process,
@@ -281,13 +282,14 @@ back:       // allocate block
 								uintptr_t delta_address = runtime_address + 0x1;
 								ZyanU64 absolute_addr = 0;
 								ZydisCalcAbsoluteAddress(&instruction, instruction.operands, runtime_address, &absolute_addr);
-								if (absolute_addr >= 0x10000000 && absolute_addr <= file.GetFileLength() + 0x10000000)
+								if (absolute_addr < block_base_address || absolute_addr > 0x1000 + block_base_address)
 								{
-									if (debug_mode) printf("-> unknown memory 0x%010" "llx" "\n", runtime_address);
+									printf("-> conditional 0x%010" "llx" "\n", runtime_address);
 									uintptr_t new_call_address = 0;
-									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
+									new_call_address = calculate_rva(absolute_addr - block_base_address + calculate_block_size, blocks, false);
 									if (new_call_address != 0xdeadc0de)
 									{
+										new_call_address = new_call_address - runtime_address - instruction.length;
 										WriteProcessMemory
 										(
 											game::process,
@@ -668,7 +670,9 @@ next_stage:					offset += instruction.length;
 							runtime_address = runtime_address + 0x1;
 						}
 						if (runtime_address - (uintptr_t)block_base_address >= 0x1000)
+						{
 							goto delete_block;
+						}
 					}
 				
 delete_block:       // delete block
