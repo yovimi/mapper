@@ -240,10 +240,10 @@ back:       // allocate block
 					ZydisDecodedInstruction instruction;
 					while (ZydisDecoderDecodeBuffer(&decoder, pFirstBytesOfFunction + offset, length - offset, &instruction))
 					{
-                        char buffer[256];
+						char buffer[256];
 						ZydisFormatterFormatInstruction(&formatter, &instruction, buffer, sizeof(buffer), runtime_address);
 
-						if (instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_JZ || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_JB 
+						if (instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_JZ || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_JB
 							|| instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_JNZ || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_JBE
 							|| instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_JLE || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_JNB
 							|| instruction.opcode == 0x0F)
@@ -257,7 +257,7 @@ back:       // allocate block
 								ZydisCalcAbsoluteAddress(&instruction, instruction.operands, runtime_address, &absolute_addr);
 								if (absolute_addr < block_base_address || absolute_addr > 0x1000 + block_base_address)
 								{
-									printf("-> conditional 0x%010" "llx" "\n", runtime_address);
+									if (debug_mode) printf("-> conditional 0x%010" "llx" "\n", runtime_address);
 									uintptr_t new_call_address = 0;
 									new_call_address = calculate_rva(absolute_addr - block_base_address + calculate_block_size, blocks, false);
 									if (new_call_address != 0xdeadc0de)
@@ -284,7 +284,7 @@ back:       // allocate block
 								ZydisCalcAbsoluteAddress(&instruction, instruction.operands, runtime_address, &absolute_addr);
 								if (absolute_addr < block_base_address || absolute_addr > 0x1000 + block_base_address)
 								{
-									printf("-> conditional 0x%010" "llx" "\n", runtime_address);
+									if (debug_mode) printf("-> conditional 0x%010" "llx" "\n", runtime_address);
 									uintptr_t new_call_address = 0;
 									new_call_address = calculate_rva(absolute_addr - block_base_address + calculate_block_size, blocks, false);
 									if (new_call_address != 0xdeadc0de)
@@ -305,10 +305,10 @@ back:       // allocate block
 							}
 						}
 
-						if (instruction.operands->type == ZYDIS_OPERAND_TYPE_MEMORY) 
+						if (instruction.operands->type == ZYDIS_OPERAND_TYPE_MEMORY)
 						{
 							if (show_asm) { printf(buffer); printf("\n"); }
-							if (instruction.length >= 0x6)
+							if (instruction.length > 0x5)
 							{
 								if (show_asm) { printf(buffer); printf("\n"); }
 								uintptr_t absolute_addr = 0;
@@ -358,7 +358,7 @@ back:       // allocate block
 								{
 									if (debug_mode) printf("-> unknown memory 0x%010" "llx" "\n", runtime_address);
 									uintptr_t new_call_address = 0;
-									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
+									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, true);
 									if (new_call_address != 0xdeadc0de)
 									{
 										WriteProcessMemory
@@ -375,7 +375,7 @@ back:       // allocate block
 								}
 							}
 						}
-                                                                        
+
 						if (instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_CALL && instruction.operands->type != ZYDIS_OPERAND_TYPE_MEMORY && instruction.operands->type != ZYDIS_OPERAND_TYPE_REGISTER)  // 0xe9
 						{
 							if (show_asm) { printf(buffer); printf("\n"); }
@@ -405,7 +405,7 @@ back:       // allocate block
 							}
 						}
 
-						if (instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_MOV && instruction.operands->type != ZYDIS_OPERAND_TYPE_MEMORY) 
+						if (instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_MOV && instruction.operands->type != ZYDIS_OPERAND_TYPE_MEMORY)
 						{
 							if (show_asm) { printf(buffer); printf("\n"); }
 							uintptr_t absolute_addr = 0;
@@ -510,8 +510,8 @@ back:       // allocate block
 							ZydisCalcAbsoluteAddress(&instruction, instruction.operands, runtime_address, &absolute_addr);
 							if (absolute_addr >= 0x10000000 && absolute_addr <= file.GetFileLength() + 0x10000000)
 							{
-								if (instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_CALL || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_INC || 
-									instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_MOV || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_CMP || 
+								if (instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_CALL || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_INC ||
+									instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_MOV || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_CMP ||
 									instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_AND || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_JMP
 									|| instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_POP || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_OR)
 								{
@@ -575,10 +575,10 @@ back:       // allocate block
 							}
 						}
 
-						if (instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_CALL || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_INC  ||
-							instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_MOV  || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_CMP  ||
-							instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_AND  || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_JMP  || 
-							instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_POP  && instruction.operands->type == ZYDIS_OPERAND_TYPE_MEMORY)
+						if (instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_CALL || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_INC ||
+							instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_MOV || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_CMP ||
+							instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_AND || instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_JMP ||
+							instruction.mnemonic == ZydisMnemonic_::ZYDIS_MNEMONIC_POP && instruction.operands->type == ZYDIS_OPERAND_TYPE_MEMORY)
 						{
 							if (instruction.opcode == 0xA1 || instruction.opcode == 0xA3 || instruction.opcode == 0xA2)  // if opcode size == 0x1
 							{
@@ -658,17 +658,10 @@ back:       // allocate block
 							}
 						}
 
-						if (find_inst)
-						{
-next_stage:					offset += instruction.length;
-							runtime_address += instruction.length;
-							find_inst = false;
-						}
-						else
-						{
-  					        offset = offset + 0x1;
-							runtime_address = runtime_address + 0x1;
-						}
+					next_stage:					offset += instruction.length;
+						runtime_address += instruction.length;
+						find_inst = false;
+
 						if (runtime_address - (uintptr_t)block_base_address >= 0x1000)
 						{
 							goto delete_block;
