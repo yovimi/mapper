@@ -358,7 +358,7 @@ back:       // allocate block
 								{
 									if (debug_mode) printf("-> unknown memory 0x%010" "llx" "\n", runtime_address);
 									uintptr_t new_call_address = 0;
-									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, true);
+									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
 									if (new_call_address != 0xdeadc0de)
 									{
 										WriteProcessMemory
