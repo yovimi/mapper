@@ -39,53 +39,28 @@ namespace mapper
 	void call_entry()
 	{
 		// =-= :3
-		uintptr_t hk_address = reinterpret_cast<uintptr_t>(GetProcAddress(GetModuleHandleA("kernelbase.dll"), "CreateRemoteThreadEx"));
-		uintptr_t ret_addr = hk_address + 0x5;
-		uintptr_t restore_hk_address = hk_address + 0x5;
-		uintptr_t restore_ret_addr = restore_hk_address + 0x5;
-		uintptr_t save_push = 0;
+		uintptr_t hk_address = reinterpret_cast<uintptr_t>(GetProcAddress(GetModuleHandleA("kernelbase.dll"), "LocalAlloc"));
+		uintptr_t ret_addr = hk_address + 0x7;
+		uintptr_t push_addr = entry_block ^ 0x1337;
+		push_addr = push_addr ^ 0xdeadbeef;
+		uintptr_t entry_point = entry_address ^ 0x1337;
+		entry_point = entry_point ^ 0xdeadbeef;
 		LPVOID alloc = VirtualAllocEx(game::process, 0, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-		LPVOID restore_alloc = VirtualAllocEx(game::process, 0, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-		LPVOID meme_alloc = VirtualAllocEx(game::process, 0, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-		LPVOID alloc_for_thread = VirtualAllocEx(game::process, 0, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
-		uintptr_t save_buffer = (uintptr_t)restore_alloc + 0x100;
-		uintptr_t unhook_alloc = (uintptr_t)alloc + 0x32;
+		LPVOID buf = VirtualAllocEx(game::process, 0, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+		uintptr_t jmp_hk = (uintptr_t)alloc - hk_address - 0x5;
+		uintptr_t calc_ret = ret_addr - ((uintptr_t)alloc + 0x70) - 0x5;
+		
 
-		// hook for restore create thread hook xDD (to call entry 1 time)
-		ReadProcessMemory(game::process, (LPVOID)((uintptr_t)hk_address + 0x6), &save_push, 0x4, 0);
-		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)restore_alloc + 0x100), restore_shellcode, 0x3, 0);
-		WriteProcessMemory(game::process, restore_alloc, restore_hook_shellcode, 0x61, 0);
-		uintptr_t calc_restore_ret_addr = restore_ret_addr - ((uintptr_t)restore_alloc + 0x57) - 0x5;
-		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)restore_alloc + 0x57 + 0x1), &calc_restore_ret_addr, 0x4, 0);
-		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)restore_alloc + 0x25), &unhook_alloc, 0x4, 0);
-		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)restore_alloc + 0x2E), &save_buffer, 0x4, 0);
-		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)restore_alloc + 0x53), &save_push, 0x4, 0);
-		uintptr_t restore_calc_address = (uintptr_t)restore_alloc - restore_hk_address - 0x5;
-		WriteProcessMemory(game::process, (LPVOID)(restore_hk_address + 0x1), &restore_calc_address, 0x4, 0);
-		WriteProcessMemory(game::process, (LPVOID)(restore_hk_address), "\xE9", 0x1, 0);
-
-		// hook create thread lol
-		printf("(entry) allocated at 0x%010" "llx" "\n", (ZyanU64)alloc);
-		uintptr_t calc_address = (uintptr_t)alloc - hk_address - 0x5;
-		WriteProcessMemory(game::process, alloc, entry_shellcode, 0x57, 0);
-		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)alloc + 0x2E), &entry_block, 0x4, 0);
-		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)alloc + 0x25), &entry_address, 0x4, 0);
-		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)alloc + 0x1E), &ret_addr, 0x4, 0);
-		uintptr_t calc_ret_addr = ret_addr - ((uintptr_t)alloc + 0x4D) - 0x5;
-		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)alloc + 0x4D + 0x1), &calc_ret_addr, 0x4, 0);
-		WriteProcessMemory(game::process, (LPVOID)(hk_address + 0x1), &calc_address, 0x4, 0);
+		// call ep (´｡• ω •｡`)
+		WriteProcessMemory(game::process, buf, "\x01\x01\x01\x01", 0x4, 0); // set je value
+		WriteProcessMemory(game::process, alloc, entry_shellcode, 0x7D, 0); // shell code 
+		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)alloc + 0x1E), &buf, 0x4, 0); // je val addr
+		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)alloc + 0x28), &buf, 0x4, 0); // je val addr
+		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)alloc + 0x71), &calc_ret, 0x4, 0); // return addr
+		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)alloc + 0x32), &push_addr, 0x4, 0); // push addr
+		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)alloc + 0x41), &entry_point, 0x4, 0); // entry addr 
+		WriteProcessMemory(game::process, (LPVOID)(hk_address + 0x1), &jmp_hk, 0x4, 0); // setup hook
 		WriteProcessMemory(game::process, (LPVOID)(hk_address), "\xE9", 0x1, 0);
-
-		// create meme and call ep (´｡• ω •｡`)
-		printf("(entry) meme allocated at 0x%010" "llx" "\n", (ZyanU64)meme_alloc);
-		printf("(entry) call thread allocated at 0x%010" "llx" "\n", (ZyanU64)alloc_for_thread);
-		WriteProcessMemory(game::process, (LPVOID)(meme_alloc), meme_shellcode, 0x1D, 0);
-		WriteProcessMemory(game::process, (LPVOID)(alloc_for_thread), create_fake_thread_shellcode, 0x16, 0);
-		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)alloc_for_thread + 0x7), &meme_alloc, 0x4, 0);
-		uintptr_t create_thread_address = reinterpret_cast<uintptr_t>(GetProcAddress(GetModuleHandleA("KERNEL32.DLL"), "CreateThread"));
-		uintptr_t calculate_lmao = create_thread_address - ((uintptr_t)alloc_for_thread + 0xF) - 0x5;
-		WriteProcessMemory(game::process, (LPVOID)((uintptr_t)alloc_for_thread + 0xF + 0x1), &calculate_lmao, 0x4, 0);
-		CreateRemoteThread(game::process, NULL, 0, (LPTHREAD_START_ROUTINE)(alloc_for_thread), 0, 0, NULL);
 	}
 
 	void fix_imports(IMAGE_NT_HEADERS* ntheaders, std::vector < uintptr_t > blocks_data)
