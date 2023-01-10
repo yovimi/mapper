@@ -9,7 +9,7 @@ namespace mapper
 		uintptr_t value1 = 0;
 		uintptr_t address_block = 0;
 		if (counting_pe) { value2 = value2 - 0x1000; }
-		if (value2 > 0x1000)
+		if (value2 >= 0x1000)
 		{
 			int block = value2 / 0x1000;
 			block = block + 1;
@@ -67,16 +67,16 @@ namespace mapper
 	{
 		DWORD currentElem = 0;
 		DWORD lastElem = 0;
-		uintptr_t calculateImportTable = calculate_rva((uint32_t)ntheaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress, blocks_data, false);
+		uintptr_t calculateImportTable = calculate_rva((uint32_t)ntheaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress, blocks_data, true);
 		PIMAGE_IMPORT_DESCRIPTOR import_table = (PIMAGE_IMPORT_DESCRIPTOR)(calculateImportTable);
 		for (int i = 0; import_table[i].FirstThunk != 0; i++)
 		{
 			DWORD* funcName = (DWORD*)(import_table[i].OriginalFirstThunk);
-			funcName = reinterpret_cast<DWORD*>(calculate_rva((uint32_t)funcName, blocks_data, false));
+			funcName = reinterpret_cast<DWORD*>(calculate_rva((uint32_t)funcName, blocks_data, true));
 			HMODULE mod = LoadLibraryA((LPCSTR)(import_table[i].Name));
-			mod = reinterpret_cast<HMODULE>(calculate_rva((uint32_t)mod, blocks_data, false));
+			mod = reinterpret_cast<HMODULE>(calculate_rva((uint32_t)mod, blocks_data, true));
 			DWORD* dw_FirstThunk = (DWORD*)(import_table[i].FirstThunk);
-			dw_FirstThunk = reinterpret_cast<DWORD*>(calculate_rva((uint32_t)dw_FirstThunk, blocks_data, false));
+			dw_FirstThunk = reinterpret_cast<DWORD*>(calculate_rva((uint32_t)dw_FirstThunk, blocks_data, true));
 
 			for (int b = 0; funcName[b] != 0; b++)
 			{
@@ -87,10 +87,10 @@ namespace mapper
 				else
 				{
 					uintptr_t calculateFuncName = funcName[b] + 2;
-					calculateFuncName = calculate_rva((uint32_t)funcName, blocks_data, false);
+					calculateFuncName = calculate_rva((uint32_t)funcName, blocks_data, true);
 					dw_FirstThunk[b] = (DWORD)GetProcAddress(mod, (LPCSTR)(calculateFuncName));
 					currentElem = funcName[b];
-					currentElem = calculate_rva((uint32_t)currentElem, blocks_data, false);
+					currentElem = calculate_rva((uint32_t)currentElem, blocks_data, true);
 				}
 			}
 		}
@@ -179,6 +179,8 @@ back:       // allocate block
 				calculate_blocks = blocks;
 				entry_block = calculate_blocks.back();
 
+				//fix_imports(nthead, blocks);
+
 				for (const auto& imp : g_imports)
 				{
 					HMODULE mod = LoadLibraryA(std::get< 1 >(imp).c_str());
@@ -186,7 +188,7 @@ back:       // allocate block
 					if (!mod)
 						continue;
 
-					uintptr_t imp_tab = calculate_rva(std::get< 0 >(imp), blocks, false);
+					uintptr_t imp_tab = calculate_rva(std::get< 0 >(imp), blocks, true);
 					printf("import replace at 0x%010" "llx" "\n", (ZyanU64)imp_tab);
 					uintptr_t calculate = reinterpret_cast<uintptr_t>(GetProcAddress(mod, std::get< 2 >(imp).c_str()));
 
@@ -234,7 +236,7 @@ back:       // allocate block
 								{
 									if (debug_mode) printf("-> conditional 0x%010" "llx" "\n", runtime_address);
 									uintptr_t new_call_address = 0;
-									new_call_address = calculate_rva(absolute_addr - block_base_address + calculate_block_size, blocks, false);
+									new_call_address = calculate_rva(absolute_addr - block_base_address + calculate_block_size, blocks, true);
 									if (new_call_address != 0xdeadc0de)
 									{
 										new_call_address = new_call_address - runtime_address - instruction.length;
@@ -261,7 +263,7 @@ back:       // allocate block
 								{
 									if (debug_mode) printf("-> conditional 0x%010" "llx" "\n", runtime_address);
 									uintptr_t new_call_address = 0;
-									new_call_address = calculate_rva(absolute_addr - block_base_address + calculate_block_size, blocks, false);
+									new_call_address = calculate_rva(absolute_addr - block_base_address + calculate_block_size, blocks, true);
 									if (new_call_address != 0xdeadc0de)
 									{
 										new_call_address = new_call_address - runtime_address - instruction.length;
@@ -300,7 +302,7 @@ back:       // allocate block
 								{
 									if (debug_mode) printf("-> unknown memory 0x%010" "llx" "\n", runtime_address);
 									uintptr_t new_call_address = 0;
-									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
+									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, true);
 									if (new_call_address != 0xdeadc0de)
 									{
 										WriteProcessMemory
@@ -333,7 +335,7 @@ back:       // allocate block
 								{
 									if (debug_mode) printf("-> unknown memory 0x%010" "llx" "\n", runtime_address);
 									uintptr_t new_call_address = 0;
-									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
+									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, true);
 									if (new_call_address != 0xdeadc0de)
 									{
 										WriteProcessMemory
@@ -361,8 +363,8 @@ back:       // allocate block
 								if (runtime_address >= block_base_address + 0xfff - 0x4) { goto next_stage; }
 								if (debug_mode) printf("-> call 0x%010" "llx" "\n", runtime_address);
 								uintptr_t new_call_address = 0;
-								if (absolute_addr > block_base_address) { new_call_address = calculate_rva(absolute_addr - block_base_address + calculate_block_size, blocks, false); }
-								if (absolute_addr < block_base_address) { new_call_address = calculate_rva(block_base_address - absolute_addr + calculate_block_size, blocks, false); }
+								if (absolute_addr > block_base_address) { new_call_address = calculate_rva(absolute_addr - block_base_address + calculate_block_size, blocks, true); }
+								if (absolute_addr < block_base_address) { new_call_address = calculate_rva(block_base_address - absolute_addr + calculate_block_size, blocks, true); }
 								uintptr_t calc_address = new_call_address - runtime_address - 0x5;
 								uintptr_t delta_address = runtime_address + 0x1;
 								if (new_call_address != 0xdeadc0de)
@@ -397,7 +399,7 @@ back:       // allocate block
 							{
 								if (debug_mode) printf("-> mov 0x%010" "llx" "\n", runtime_address);
 								uintptr_t new_call_address = 0;
-								new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
+								new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, true);
 								if (new_call_address != 0xdeadc0de)
 								{
 									WriteProcessMemory
@@ -463,7 +465,7 @@ back:       // allocate block
 							{
 								if (debug_mode) printf("-> shit mov 0x%010" "llx" "\n", runtime_address);
 								uintptr_t new_call_address = 0;
-								new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
+								new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, true);
 								if (new_call_address != 0xdeadc0de)
 								{
 									WriteProcessMemory
@@ -502,7 +504,7 @@ back:       // allocate block
 											if (absolute_addr == 0xcccccccccccccccc) { goto next_stage; }
 											if (absolute_addr < 0x10000000) { goto next_stage; }
 											uintptr_t new_call_address = 0;
-											new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
+											new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, true);
 											uintptr_t delta_address = runtime_address + 0x1;
 											if (new_call_address != 0xdeadc0de)
 											{
@@ -530,7 +532,7 @@ back:       // allocate block
 											if (absolute_addr == 0xcccccccccccccccc) { goto next_stage; }
 											if (absolute_addr < 0x10000000) { goto next_stage; }
 											uintptr_t new_call_address = 0;
-											new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
+											new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, true);
 											uintptr_t delta_address = runtime_address + 0x2;
 											if (new_call_address != 0xdeadc0de)
 											{
@@ -577,7 +579,7 @@ back:       // allocate block
 									if (absolute_addr == 0xcccccccccccccccc) { goto next_stage; }
 									if (absolute_addr < 0x10000000) { goto next_stage; }
 									uintptr_t new_call_address = 0;
-									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
+									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, true);
 									uintptr_t delta_address = runtime_address + 0x1;
 									if (new_call_address != 0xdeadc0de)
 									{
@@ -615,7 +617,7 @@ back:       // allocate block
 									if (absolute_addr == 0xcccccccccccccccc) { goto next_stage; }
 									if (absolute_addr < 0x10000000) { goto next_stage; }
 									uintptr_t new_call_address = 0;
-									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, false);
+									new_call_address = calculate_rva(absolute_addr - 0x10000000, blocks, true);
 									uintptr_t delta_address = runtime_address + 0x2;
 									if (new_call_address != 0xdeadc0de)
 									{
